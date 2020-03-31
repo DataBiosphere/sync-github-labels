@@ -106,7 +106,7 @@ def get_access_token():
     return token
 
 
-def get_user_confirmation():
+def get_user_confirmation(dry_run):
     """Make sure user is ok to proceed"""
     confirm = ""
     if dry_run:
