@@ -15,11 +15,11 @@ def sync_labels(src_repo, dest_repo, dry_run, force, delete):
     """
     Main subroutine: sync labels between source/destination Github repos
 
-    :param src_repo: full repo name for source of labels
-    :param dest_repo: full repo name for destination of label actions
-    :param dry_run: do a dry run, do not perform the actions
-    :param force: force script to perform the actions without user confirmation
-    :param delete: delete labels that are in destination but not in source
+    :param str src_repo: full repo name for source of labels
+    :param str dest_repo: full repo name for destination of label actions
+    :param bool dry_run: do a dry run, do not perform the actions
+    :param bool force: force script to perform the actions without user confirmation
+    :param bool delete: delete labels that are in destination but not in source
     """
 
     # Get PyGithub objects representing repos
@@ -46,21 +46,27 @@ def sync_labels(src_repo, dest_repo, dry_run, force, delete):
     dest_del = sorted(list(dest_label_names - src_label_names))
 
     # Show summary of what actions will be taken, get confirmation
-    print(f"The following labels will be created in {dest_repo}:")
-    for lab in sorted(list(dest_add)):
-        print(f" [+] {lab}")
+    if len(dest_add) == 0:
+        print(f"No labels to create in {dest_repo}")
+    else:
+        print(f"The following labels will be created in {dest_repo}:")
+        for lab in sorted(list(dest_add)):
+            print(f" [+] {lab}")
 
     if delete:
-        print(f"The following labels will be deleted in {dest_repo}:")
-        for lab in sorted(list(dest_del)):
-            print(f" [-] {lab}")
+        if len(dest_add) == 0:
+            print(f"No labels to delete from {dest_repo}")
+        else:
+            print(f"The following labels will be deleted in {dest_repo}:")
+            for lab in sorted(list(dest_del)):
+                print(f" [-] {lab}")
 
     if not force:
-        get_user_confirmation()
+        get_user_confirmation(dry_run)
 
     # Add new labels
     for name in dest_add:
-        print(f"Creating label {name} in destination repo {dest_repo}...")
+        print(f"Creating label \"{name}\" in destination repo {dest_repo}...")
         if dry_run:
             print(f"Dry run successful!")
             continue
@@ -73,20 +79,21 @@ def sync_labels(src_repo, dest_repo, dry_run, force, delete):
             #d.create_label(name, color, description)
             print(f"Success!")
         except GithubException:
-            raise Exception(f"Error creating label {name} in destination repo {dest_repo}")
+            raise Exception(f"Error creating label \"{name}\" in destination repo {dest_repo}")
 
     # Delete labels
-    for name in dest_del:
-        print(f"Deleting label {name} from destination repo {dest_repo}...")
-        if dry_run:
-            print(f"Dry run successful!")
-            continue
-        label = d.get_label(name)
-        try:
-            label.delete()
-            print(f"Success!")
-        except GithubException:
-            raise Exception(f"Error deleting label {name} from destination repo {dest_repo}")
+    if delete:
+        for name in dest_del:
+            print(f"Deleting label \"{name}\" from destination repo {dest_repo}...")
+            if dry_run:
+                print(f"Dry run successful!")
+                continue
+            label = rd.get_label(name)
+            try:
+                label.delete()
+                print(f"Success!")
+            except GithubException:
+                raise Exception(f"Error deleting label \"{name}\" from destination repo {dest_repo}")
 
     print("Done.")
 
@@ -101,7 +108,10 @@ def get_access_token():
 
 def get_user_confirmation():
     """Make sure user is ok to proceed"""
-    confirm = "Okay to proceed? (Type 'y' or 'yes' to confirm):\n"
+    confirm = ""
+    if dry_run:
+        confirm = "This script is in dry-run mode. No changes will be made to remotes.\n"
+    confirm += "Okay to proceed? (Type 'y' or 'yes' to confirm):\n"
     response = input(confirm)
     if response.lower() not in ["y", "yes"]:
         print("You safely aborted the label sync operation.")
