@@ -93,8 +93,10 @@ def sync_labels(src_repo, dest_repo, dry_run, force, delete):
 
 def get_access_token():
     """Grab github api token from env var"""
-    if os.environ.get("GITHUB_API_KEY", None) is None:
+    token = os.environ.get("GITHUB_API_KEY", None)
+    if token is None:
         raise Exception("No env var GITHUB_API_KEY defined")
+    return token
 
 
 def get_user_confirmation():
