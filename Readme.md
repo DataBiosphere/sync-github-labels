@@ -17,26 +17,6 @@ Call this script on the command line, and pass it the source and destination rep
 ./sync_labels.py [--FLAGS] SOURCE_REPO DEST_REPO
 ```
 
-Here is the help menu:
-
-```
-usage: Sync Github Labels [-h] [--dry-run] [--delete] [--force]
-                          source_repo destination_repo
-
-positional arguments:
-  source_repo       Source Github repo for label sync process, in the form
-                    username/reponame or orgname/reponame
-  destination_repo  Destination Github repo for label sync process, in the
-                    form username/reponame or orgname/reponame
-
-optional arguments:
-  -h, --help        show this help message and exit
-  --dry-run, -n     Do a dry run
-  --delete, -d      Delete labels that are in destination repo and not in
-                    source repo
-  --force, -f       Perform label sync without waiting for user confirmation
-```
-
 ## Normal Operation
 
 The basic mode of operation is to pass the script the full name of a source repository 
