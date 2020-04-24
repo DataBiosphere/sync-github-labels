@@ -38,15 +38,11 @@ def sync_labels(src_repo, dst_repo, dry_run, delete):
     try:
         src = gh.get_repo(src_repo)
     except UnknownObjectException as e:
-        msg = f"The source repository specified does not exist: {src_repo}"
-        logging.exception(msg)
-        raise RuntimeError(msg)
+        raise RuntimeError("The specified source repository does not exist.", src_repo)
     try:
         dst = gh.get_repo(dst_repo)
     except UnknownObjectException as e:
-        msg = f"The destination repository specified does not exist: {dst_repo}"
-        logging.exception(msg)
-        raise RuntimeError(msg)
+        raise RuntimeError("The destination repository specified does not exist.", dst_repo)
 
     # Create list of labels to add/delete
     src_labels = list(src.get_labels())
@@ -59,21 +55,20 @@ def sync_labels(src_repo, dst_repo, dry_run, delete):
 
     # Show summary of what actions will be taken
     if len(dst_add) > 0:
-        logger.info(f"The following labels will be created in {dst_repo}:")
+        print(f"The following labels will be created in {dst_repo}:")
         print_list(list(dst_add), " [+] ")
 
     if len(dst_upd) > 0:
-        logger.info(f"The following labels will be updated in {dst_repo}:")
+        print(f"The following labels will be updated in {dst_repo}:")
         print_list(list(dst_upd), " [u] ")
 
     if delete:
         if len(dst_del) > 0:
-            logger.info(f"The following labels will be deleted in {dst_repo}:")
+            print(f"The following labels will be deleted in {dst_repo}:")
             print_list(list(dst_del), " [-] ")
 
     # Add new labels
     add_ok = []
-    add_fail = []
     for name in dst_add:
         if dry_run:
             add_ok.append(name)
@@ -86,13 +81,10 @@ def sync_labels(src_repo, dst_repo, dry_run, delete):
                 dst.create_label(name, color, description)
             except GithubException:
                 logging.exception(f"Error adding label: {name}")
-                add_fail.append(name)
-            else:
-                add_ok.append(name)
+                sys.exit(1)
 
     # Update existing labels
     upd_ok = []
-    upd_fail = []
     for name in dst_upd:
         if dry_run:
             upd_ok.append(name)
@@ -106,13 +98,10 @@ def sync_labels(src_repo, dst_repo, dry_run, delete):
                 dst_label.edit(name, color, description)
             except GithubException:
                 logging.exception(f"Error updating label: {name}")
-                upd_fail.append(name)
-            else:
-                upd_ok.append(name)
+                sys.exit(1)
 
     # Delete labels
     del_ok = []
-    del_fail = []
     if delete:
         for name in dst_del:
             if dry_run:
@@ -124,22 +113,11 @@ def sync_labels(src_repo, dst_repo, dry_run, delete):
                     label.delete()
                 except GithubException:
                     logging.exception(f"Error deleting label: {name}")
-                    del_fail.append(name)
-                else:
-                    del_ok.append(name)
+                    sys.exit(1)
 
     if not dry_run:
         print_sameline("Done.", last_line=True)
-
-    if len(add_fail) > 0:
-        logger.info(f"Failed to add labels to {src_repo}:")
-        print_list(add_fail, " [!] ")
-    if len(upd_fail) > 0:
-        logger.info(f"Failed to update labels in {src_repo}:")
-        print_list(add_fail, " [!] ")
-    if len(del_fail) > 0:
-        logger.info(f"Failed to delete labels from {src_repo}:")
-        print_list(del_fail, " [!] ")
+        sys.exit(0)
 
 
 def print_sameline(msg, last_line=False):
@@ -152,8 +130,9 @@ def print_sameline(msg, last_line=False):
 
 def get_access_token():
     """Grab Github API token from environment variable"""
-    api_key = os.environ.get("GITHUB_API_KEY", None)
-    if api_key is None:
+    try:
+        api_key = os.environ["GITHUB_API_KEY"]
+    except KeyError:
         raise RuntimeError("No environment variable GITHUB_API_KEY defined")
     return api_key
 
@@ -175,7 +154,6 @@ def main(sysargs=sys.argv[1:]):
 
 
 def get_argument_parser(sysargs):
-    """Assemble and return an argument parser object"""
 
     parser = argparse.ArgumentParser(prog="Sync Github Labels")
     parser.add_argument(
