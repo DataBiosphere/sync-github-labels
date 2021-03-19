@@ -87,7 +87,7 @@ def sync_labels(src_repo, dst_repo, dry_run, delete):
 def add_label(name, src, dst):
     label = src.get_label(name)
     color = label.color
-    description = label.description or GithubObject.NotSet
+    description = get_description(label)
     dst.create_label(name, color, description)
 
 
@@ -95,13 +95,17 @@ def update_label(name, src, dst):
     label = src.get_label(name)
     dst_label = dst.get_label(name)
     color = label.color
-    description = label.description or GithubObject.NotSet
+    description = get_description(label)
     dst_label.edit(name, color, description)
 
 
 def delete_label(name, src, dst):
     label = dst.get_label(name)
     label.delete()
+
+
+def get_description(label):
+    return label.description or GithubObject.NotSet
 
 
 def print_sameline(msg, last_line=False):
