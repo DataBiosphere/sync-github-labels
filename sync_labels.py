@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 import sys
 import os
-import json
 import logging
 import argparse
-from github import Github, GithubException, UnknownObjectException, BadCredentialsException
+from github import (
+    Github,
+    GithubObject,
+    UnknownObjectException,
+)
 
 """
 Sync Github Labels
@@ -50,78 +53,59 @@ def sync_labels(src_repo, dst_repo, dry_run, delete):
     dst_labels = list(dst.get_labels())
     dst_label_names = {j.name for j in dst_labels}
     dst_add = src_label_names - dst_label_names
-    dst_upd = src_label_names.intersection(dst_label_names)
-    dst_del = dst_label_names - src_label_names
+    dst_update = src_label_names.intersection(dst_label_names)
+    dst_delete = dst_label_names - src_label_names if delete else set()
 
-    # Show summary of what actions will be taken
-    if len(dst_add) > 0:
-        print(f"The following labels will be created in {dst_repo}:")
-        print_list(list(dst_add), " [+] ")
+    for action, labels, symbol in (('created', dst_add, '+'),
+                                   ('updated', dst_update, 'u'),
+                                   ('deleted', dst_delete, '-')):
+        if len(labels) > 0:
+            print(f"The following labels will be {action} in {dst_repo}:")
+            print_list(list(labels), symbol)
 
-    if len(dst_upd) > 0:
-        print(f"The following labels will be updated in {dst_repo}:")
-        print_list(list(dst_upd), " [u] ")
+    fails = []
 
-    if delete:
-        if len(dst_del) > 0:
-            print(f"The following labels will be deleted in {dst_repo}:")
-            print_list(list(dst_del), " [-] ")
-
-    # Add new labels
-    add_ok = []
-    for name in dst_add:
-        if dry_run:
-            add_ok.append(name)
-        else:
-            print_sameline("Adding label: " + name)
-            label = src.get_label(name)
-            color = label.color
-            description = label.description
-            try:
-                dst.create_label(name, color, description)
-            except GithubException:
-                logging.exception(f"Error adding label: {name}")
-                sys.exit(1)
-
-    # Update existing labels
-    upd_ok = []
-    for name in dst_upd:
-        if dry_run:
-            upd_ok.append(name)
-        else:
-            print_sameline("Updating label: " + name)
-            label = src.get_label(name)
-            dst_label = dst.get_label(name)
-            color = label.color
-            description = label.description
-            try:
-                dst_label.edit(name, color, description)
-            except GithubException:
-                logging.exception(f"Error updating label: {name}")
-                sys.exit(1)
-
-    # Delete labels
-    del_ok = []
-    if delete:
-        for name in dst_del:
-            if dry_run:
-                del_ok.append(name)
-            else:
-                print_sameline("Deleting label: " + name)
-                label = dst.get_label(name)
+    for action, labels, function in (('Adding', dst_add, add_label),
+                                     ('Updating', dst_update, update_label),
+                                     ('Deleting', dst_delete, delete_label)):
+        for name in labels:
+            print_sameline(f'{action} label: {name}')
+            if not dry_run:
                 try:
-                    label.delete()
-                except GithubException:
-                    logging.exception(f"Error deleting label: {name}")
-                    sys.exit(1)
+                    function(name, src, dst)
+                except Exception:
+                    logging.exception(f'Error {action.lower()} label: {name}')
+                    fails.append((action, name))
+    print_sameline("Done.", last_line=True)
 
-    if not dry_run:
-        print_sameline("Done.", last_line=True)
-        sys.exit(0)
+    if fails:
+        print('The following labels failed:', file=sys.stderr)
+    for action, name in fails:
+        print(f'{action} {repr(name)}', file=sys.stderr)
+
+
+def add_label(name, src, dst):
+    label = src.get_label(name)
+    color = label.color
+    description = label.description or GithubObject.NotSet
+    dst.create_label(name, color, description)
+
+
+def update_label(name, src, dst):
+    label = src.get_label(name)
+    dst_label = dst.get_label(name)
+    color = label.color
+    description = label.description or GithubObject.NotSet
+    dst_label.edit(name, color, description)
+
+
+def delete_label(name, src, dst):
+    label = dst.get_label(name)
+    label.delete()
 
 
 def print_sameline(msg, last_line=False):
-    sys.stdout.write("\033[K") # Clear prior printed line
+    sys.stdout.write("\033[K")  # Clear prior printed line
     if not last_line:
         print(msg, end="\r")
     else:
@@ -140,13 +124,13 @@ def get_access_token():
 def print_list(lst, bull):
     """Print a list, one item per line, starting with string bull"""
     for item in sorted(lst):
-        logger.info(f"{bull}{item}")
+        logger.info(f" [{bull}] {item}")
 
 
-def main(sysargs=sys.argv[1:]):
+def main(args):
 
-    parser = get_argument_parser(sysargs)
-    args = parser.parse_args(sysargs)
+    parser = get_argument_parser(args)
+    args = parser.parse_args(args)
 
     logger.info("="*30)
     logger.info(f"{os.path.basename(__file__)}: Syncing labels from {args.src} to {args.dst}")
@@ -182,4 +166,4 @@ def get_argument_parser(sysargs):
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])
