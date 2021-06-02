@@ -5,5 +5,5 @@ idna==2.9
 PyGithub==1.47
 PyJWT==1.7.1
 requests==2.23.0
-urllib3==1.25.8
+urllib3==1.26.5
 wrapt==1.12.1
